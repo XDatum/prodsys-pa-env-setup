@@ -11,6 +11,9 @@ PLATFORM='x86_64'
 
 source $(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/env_vars.sh
 
+DJANGOAPP_DIR=${WEBAPP_DIR}/service
+DJANGOAPP_NAME='p2paweb'
+
 pkgs() {
     cd ${WEBAPP_DIR}
     sudo -u ${SERVICE_USER} -H bash << EOF
@@ -27,7 +30,7 @@ gunicorn() {
 #!/usr/bin/env bash
 
 NAME="${SERVICE_NAME}"
-DJANGODIR=${WEBAPP_DIR}/services
+DJANGODIR=${DJANGOAPP_DIR}
 SOCKFILE=${WEBAPP_DIR}/run/gunicorn.sock
 USER=${SERVICE_USER}
 GROUP=${SERVICE_GROUP}
@@ -153,7 +156,7 @@ http {
         }
 
         location /static/ {
-            alias    ${WEBAPP_DIR}/services/p2paweb/static/;
+            alias    ${DJANGOAPP_DIR}/${DJANGOAPP_NAME}/static/;
         }
     }
 }
@@ -240,7 +243,7 @@ EOF
 
     cat << EOF > /etc/supervisord.d/supervisord_${SERVICE_NAME}.conf
 [program:${SERVICE_NAME}]
-#directory=${WEBAPP_DIR}/services
+#directory=${DJANGOAPP_DIR}
 command=${WEBAPP_DIR}/bin/gunicorn_start
 #environment=DJANGO_ENV="prod"
 user=${SERVICE_USER}

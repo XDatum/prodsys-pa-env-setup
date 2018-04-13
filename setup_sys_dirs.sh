@@ -9,13 +9,13 @@ service_user() {
     useradd --system --gid ${SERVICE_GROUP} --shell /bin/bash ${SERVICE_USER}
 }
 
-web_dirs() {
+webapp_dirs() {
     mkdir ${WEBAPP_DIR}
     chown -R ${SERVICE_USER}:${DEFAULT_SYS_GROUP} ${WEBAPP_DIR}
     chmod -R g+w ${WEBAPP_DIR}
 
     cd ${WEBAPP_DIR}
-    for d in 'services' 'run' 'logs'; do
+    for d in 'service' 'run' 'logs'; do
         mkdir -p "$d"
         chown -R ${SERVICE_USER}:${SERVICE_GROUP} "$d"
     done
@@ -34,7 +34,7 @@ cronjobs_dirs() {
 }
 
 
-ACTIONS_LIST="service_user web_dirs cronjobs_dirs"
+ACTIONS_LIST="service_user webapp_dirs cronjobs_dirs"
 [ -n "$1" ] && ACTIONS_LIST="$*"
 for action in ${ACTIONS_LIST}; do
   ${action}

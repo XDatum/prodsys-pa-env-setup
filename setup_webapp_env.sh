@@ -11,6 +11,8 @@ PLATFORM='x86_64'
 
 source $(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/env_vars.sh
 
+WEBAPP_LOG_DIR=${WEBAPP_DIR}/logs
+
 DJANGOAPP_DIR=${WEBAPP_DIR}/service
 DJANGOAPP_NAME='p2paweb'
 
@@ -26,7 +28,7 @@ EOF
 gunicorn() {
     GUNICORN_START_FILE='${WEBAPP_DIR}/bin/gunicorn_start'
 
-    cat << EOF > ${WEBAPP_DIR}/bin/gunicorn_start
+    cat << EOF > ${GUNICORN_START_FILE}
 #!/usr/bin/env bash
 
 NAME="${SERVICE_NAME}"
@@ -59,8 +61,8 @@ EOF
     chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_START_FILE}
     chmod u+x ${GUNICORN_START_FILE}
 
-    touch ${WEBAPP_DIR}/logs/gunicorn_supervisor.log
-    chown ${SERVICE_USER}:${SERVICE_GROUP} '${WEBAPP_DIR}/logs/gunicorn_supervisor.log'
+    touch ${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
+    chown ${SERVICE_USER}:${SERVICE_GROUP} '${WEBAPP_LOG_DIR}/gunicorn_supervisor.log'
 }
 
 nginx() {
@@ -133,8 +135,8 @@ http {
         ssl_prefer_server_ciphers    on;
         ssl_ciphers    \'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA\';
 
-        access_log    ${WEBAPP_DIR}/logs/nginx-access.log  main;
-        error_log     ${WEBAPP_DIR}/logs/nginx-error.log;
+        access_log    ${WEBAPP_LOG_DIR}/nginx-access.log  main;
+        error_log     ${WEBAPP_LOG_DIR}/nginx-error.log;
 
         location / {
             try_files    \$uri    @proxy_to_app;
@@ -250,7 +252,7 @@ user=${SERVICE_USER}
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile = ${WEBAPP_DIR}/logs/gunicorn_supervisor.log
+stdout_logfile = ${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
 environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8
 EOF
     sudo supervisorctl add ${SERVICE_NAME}

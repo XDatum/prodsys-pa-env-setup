@@ -26,12 +26,13 @@ EOF
 }
 
 gunicorn() {
-    GUNICORN_START_FILE='${WEBAPP_DIR}/bin/gunicorn_start'
+    GUNICORN_START_FILE=${WEBAPP_DIR}/bin/gunicorn_start
+    GUNICORN_LOG_FILE=${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
 
     cat << EOF > ${GUNICORN_START_FILE}
 #!/usr/bin/env bash
 
-NAME="${SERVICE_NAME}"
+NAME=${SERVICE_NAME}
 DJANGODIR=${DJANGOAPP_DIR}
 SOCKFILE=${WEBAPP_DIR}/run/gunicorn.sock
 USER=${SERVICE_USER}
@@ -60,9 +61,8 @@ exec ../bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
 EOF
     chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_START_FILE}
     chmod u+x ${GUNICORN_START_FILE}
-
-    touch ${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
-    chown ${SERVICE_USER}:${SERVICE_GROUP} '${WEBAPP_LOG_DIR}/gunicorn_supervisor.log'
+    touch ${GUNICORN_LOG_FILE}
+    chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_LOG_FILE}
 }
 
 nginx() {
@@ -76,6 +76,10 @@ EOF
     yum install -y nginx
     mv /etc/nginx/conf.d/ssl.conf{,.disabled}
     rm -f /etc/nginx/conf.d/*.conf
+
+    NGINX_ACCESS_LOG_FILE=${WEBAPP_LOG_DIR}/nginx-access.log
+    NGINX_ERROR_LOG_FILE=${WEBAPP_LOG_DIR}/nginx-error.log
+
     cat << EOF > /etc/nginx/conf.d/nginx.conf
 user  nginx;
 worker_processes  4;
@@ -93,9 +97,9 @@ http {
     include              /etc/nginx/mime.types;
     default_type         application/octet-stream;
 
-    log_format  main     \'\$remote_addr - \$remote_user [\$time_local] "\$request" \'
-                         \'\$status \$body_bytes_sent "\$http_referer" \'
-                         \'"\$http_user_agent" "\$http_x_forwarded_for"\';
+    log_format  main     '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                         '\$status \$body_bytes_sent "\$http_referer" '
+                         '"\$http_user_agent" "\$http_x_forwarded_for"';
 
     sendfile             on;
     #tcp_nopush          on;
@@ -133,10 +137,10 @@ http {
 
         ssl_protocols    TLSv1 TLSv1.1 TLSv1.2;
         ssl_prefer_server_ciphers    on;
-        ssl_ciphers    \'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA\';
+        ssl_ciphers    'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA';
 
-        access_log    ${WEBAPP_LOG_DIR}/nginx-access.log  main;
-        error_log     ${WEBAPP_LOG_DIR}/nginx-error.log;
+        access_log    ${NGINX_ACCESS_LOG_FILE}  main;
+        error_log     ${NGINX_ERROR_LOG_FILE};
 
         location / {
             try_files    \$uri    @proxy_to_app;
@@ -163,6 +167,9 @@ http {
     }
 }
 EOF
+    touch ${NGINX_ACCESS_LOG_FILE} ${NGINX_ERROR_LOG_FILE}
+    chown nginx:nginx ${NGINX_ACCESS_LOG_FILE} ${NGINX_ERROR_LOG_FILE}
+    setenforce 0
     chkconfig --levels 345 nginx on
     service nginx status && service nginx reload || service nginx start
 }

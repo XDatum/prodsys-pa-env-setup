@@ -175,13 +175,16 @@ EOF
 }
 
 supervisor() {
+    SUPERVISOR_CONFIG_FILE=/etc/supervisord.conf
+
     pip install supervisor
-    echo_supervisord_conf > /etc/supervisord.conf
+    echo_supervisord_conf > ${SUPERVISOR_CONFIG_FILE}
     mkdir /etc/supervisord.d/
-    cat << EOF >> /etc/supervisord.conf
+    cat << EOF >> ${SUPERVISOR_CONFIG_FILE}
 [include]
 files = /etc/supervisord.d/*.conf
 EOF
+
     cat << EOF > /etc/rc.d/init.d/supervisord
 #!/bin/sh
 #
@@ -201,23 +204,22 @@ EOF
 
 prog="supervisord"
 
-prefix="/usr/"
-exec_prefix="\${prefix}"
-prog_bin="\${exec_prefix}bin/supervisord"
-PIDFILE="/var/run/\${prog}.pid"
+prog_bin="/usr/local/bin/\${prog}"
+prog_config="${SUPERVISOR_CONFIG_FILE}"
+prog_pidfile="/var/run/\${prog}.pid"
 
 start()
 {
        echo -n \$"Starting \${prog}: "
-       daemon \${prog_bin} --pidfile \${PIDFILE}
-       [ -f \${PIDFILE} ] && success \$"\${prog} startup" || failure \$"\${prog} startup"
+       daemon \${prog_bin} -c \${prog_config} --pidfile \${prog_pidfile}
+       [ -f \${prog_pidfile} ] && success \$"\${prog} startup" || failure \$"\${prog} startup"
        echo
 }
 
 stop()
 {
        echo -n \$"Shutting down \${prog}: "
-       [ -f \${PIDFILE} ] && killproc \${prog} || success \$"\${prog} shutdown"
+       [ -f \${prog_pidfile} ] && killproc \${prog} || success \$"\${prog} shutdown"
        echo
 }
 
@@ -259,13 +261,12 @@ user=${SERVICE_USER}
 autostart=true
 autorestart=true
 redirect_stderr=true
-stdout_logfile = ${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
+stdout_logfile=${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
 environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8
 EOF
-    sudo supervisorctl add ${SERVICE_NAME}
-    sudo supervisorctl start ${SERVICE_NAME}
-
     service supervisord status && service supervisord reload || service supervisord start
+    supervisorctl add ${SERVICE_NAME}
+    supervisorctl start ${SERVICE_NAME}
 }
 
 

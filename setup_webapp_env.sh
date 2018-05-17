@@ -21,7 +21,7 @@ pkgs() {
     sudo -u ${SERVICE_USER} -H bash << EOF
     virtualenv .
     . bin/activate
-    pip install Django==1.11.11 gunicorn setproctitle argparse numpy
+    pip install Django==1.11.* gunicorn setproctitle argparse numpy
 EOF
 }
 
@@ -126,8 +126,8 @@ http {
         add_header     X-Frame-Options DENY;
         add_header     X-Content-Type-Options nosniff;
 
-        ssl_certificate           /etc/pki/CA/certs/server.crt;
-        ssl_certificate_key       /etc/pki/CA/private/server.key;
+        ssl_certificate           /etc/ssl/server.crt;
+        ssl_certificate_key       /etc/ssl/server.key;
         ssl_client_certificate    /etc/ssl/certs/ca-bundle.crt;
         ssl_verify_client         on;
         ssl_verify_depth          7;

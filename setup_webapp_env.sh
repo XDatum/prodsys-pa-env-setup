@@ -49,7 +49,7 @@ export DJANGO_SETTINGS_MODULE=\${DJANGO_SETTINGS_MODULE}
 export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
 
 RUNDIR=\$(dirname \${SOCKFILE})
-test -d \${RUNDIR} \|| mkdir -p \${RUNDIR}
+test -d \${RUNDIR} || mkdir -p \${RUNDIR}
 
 exec ../bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
   --name \${NAME} \

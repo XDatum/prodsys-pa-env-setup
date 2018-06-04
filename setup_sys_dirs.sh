@@ -27,7 +27,7 @@ cronjobs_dirs() {
     chmod -R g+w ${CRONJOBS_DIR}
 
     cd ${CRONJOBS_DIR}
-    for d in 'services' 'logs'; do
+    for d in 'bin' 'packages' 'logs'; do
         mkdir -p "$d"
         chown -R ${SERVICE_USER}:${SERVICE_GROUP} "$d"
     done

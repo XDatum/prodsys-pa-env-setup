@@ -21,48 +21,8 @@ pkgs() {
     sudo -u ${SERVICE_USER} -H bash << EOF
     virtualenv .
     . bin/activate
-    pip install Django==1.11.* gunicorn setproctitle argparse numpy
+    pip install Django==1.11.* gunicorn setproctitle celery argparse numpy
 EOF
-}
-
-gunicorn() {
-    GUNICORN_START_FILE=${WEBAPP_DIR}/bin/gunicorn_start
-    GUNICORN_LOG_FILE=${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
-
-    cat << EOF > ${GUNICORN_START_FILE}
-#!/usr/bin/env bash
-
-NAME=${SERVICE_NAME}
-DJANGODIR=${DJANGOAPP_DIR}
-SOCKFILE=${WEBAPP_DIR}/run/gunicorn.sock
-USER=${SERVICE_USER}
-GROUP=${SERVICE_GROUP}
-NUM_WORKERS=4
-DJANGO_SETTINGS_MODULE=config.settings
-DJANGO_WSGI_MODULE=config.wsgi
-
-echo "Starting \$NAME as \`whoami\`"
-
-cd \${DJANGODIR}
-. ../bin/activate
-export DJANGO_SETTINGS_MODULE=\${DJANGO_SETTINGS_MODULE}
-export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
-
-RUNDIR=\$(dirname \${SOCKFILE})
-test -d \${RUNDIR} || mkdir -p \${RUNDIR}
-
-exec ../bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
-  --name \${NAME} \
-  --workers \${NUM_WORKERS} \
-  --user=\${USER} --group=\${GROUP} \
-  --bind=unix:\${SOCKFILE} \
-  --log-level=info \
-  --log-file=-
-EOF
-    chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_START_FILE}
-    chmod u+x ${GUNICORN_START_FILE}
-    touch ${GUNICORN_LOG_FILE}
-    chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_LOG_FILE}
 }
 
 nginx() {
@@ -73,6 +33,7 @@ baseurl=http://nginx.org/packages/${OS}/${OSRELEASE}/${PLATFORM}/
 gpgcheck=0
 enabled=1
 EOF
+
     yum install -y nginx
     mv /etc/nginx/conf.d/ssl.conf{,.disabled}
     rm -f /etc/nginx/conf.d/*.conf
@@ -167,8 +128,10 @@ http {
     }
 }
 EOF
+
     touch ${NGINX_ACCESS_LOG_FILE} ${NGINX_ERROR_LOG_FILE}
     chown nginx:nginx ${NGINX_ACCESS_LOG_FILE} ${NGINX_ERROR_LOG_FILE}
+
     setenforce 0
     chkconfig --levels 345 nginx on
     service nginx status && service nginx reload || service nginx start
@@ -176,13 +139,15 @@ EOF
 
 supervisor() {
     SUPERVISOR_CONFIG_FILE=/etc/supervisord.conf
+    SUPERVISOR_CONFIG_DIR=/etc/supervisord.d/
 
     pip install supervisor
     echo_supervisord_conf > ${SUPERVISOR_CONFIG_FILE}
-    mkdir /etc/supervisord.d/
+    mkdir ${SUPERVISOR_CONFIG_DIR}
+
     cat << EOF >> ${SUPERVISOR_CONFIG_FILE}
 [include]
-files = /etc/supervisord.d/*.conf
+files = ${SUPERVISOR_CONFIG_DIR}*.conf
 EOF
 
     cat << EOF > /etc/rc.d/init.d/supervisord
@@ -248,29 +213,115 @@ case "\$1" in
 
 esac
 EOF
+
     chmod +x /etc/rc.d/init.d/supervisord
     chkconfig --add supervisord
     chkconfig supervisord on
+    service supervisord status && service supervisord reload || service supervisord start
+}
+
+gunicorn() {
+    GUNICORN_START_FILE=${WEBAPP_DIR}/bin/gunicorn_start
+    GUNICORN_LOG_FILE=${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
+
+    cat << EOF > ${GUNICORN_START_FILE}
+#!/usr/bin/env bash
+
+NAME=${SERVICE_NAME}
+DJANGODIR=${DJANGOAPP_DIR}
+SOCKFILE=${WEBAPP_DIR}/run/gunicorn.sock
+USER=${SERVICE_USER}
+GROUP=${SERVICE_GROUP}
+NUM_WORKERS=4
+DJANGO_SETTINGS_MODULE=config.settings
+DJANGO_WSGI_MODULE=config.wsgi
+
+echo "Starting gunicorn \$NAME as \`whoami\`"
+
+cd \${DJANGODIR}
+. ../bin/activate
+export DJANGO_SETTINGS_MODULE=\${DJANGO_SETTINGS_MODULE}
+export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
+
+RUNDIR=\$(dirname \${SOCKFILE})
+test -d \${RUNDIR} || mkdir -p \${RUNDIR}
+
+exec ../bin/gunicorn \${DJANGO_WSGI_MODULE}:application \
+  --name \${NAME} \
+  --workers \${NUM_WORKERS} \
+  --user=\${USER} --group=\${GROUP} \
+  --bind=unix:\${SOCKFILE} \
+  --log-level=info \
+  --log-file=-
+EOF
+
+    touch ${GUNICORN_LOG_FILE}
+    chown ${SERVICE_USER}:${SERVICE_GROUP} ${GUNICORN_START_FILE} ${GUNICORN_LOG_FILE}
+    chmod u+x ${GUNICORN_START_FILE}
 
     cat << EOF > /etc/supervisord.d/supervisord_${SERVICE_NAME}.conf
 [program:${SERVICE_NAME}]
 #directory=${DJANGOAPP_DIR}
-command=${WEBAPP_DIR}/bin/gunicorn_start
-#environment=DJANGO_ENV="prod"
+command=${GUNICORN_START_FILE}
 user=${SERVICE_USER}
+stdout_logfile=${GUNICORN_LOG_FILE}
+redirect_stderr=true
 autostart=true
 autorestart=true
-redirect_stderr=true
-stdout_logfile=${WEBAPP_LOG_DIR}/gunicorn_supervisor.log
 environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8
 EOF
-    service supervisord status && service supervisord reload || service supervisord start
+
     supervisorctl add ${SERVICE_NAME}
     supervisorctl start ${SERVICE_NAME}
 }
 
+rabbitmq() {
+    yum install erlang
+    yum install rabbitmq-server.noarch
 
-ACTIONS_LIST="pkgs gunicorn nginx supervisor"
+    chkconfig rabbitmq-server on
+    service rabbitmq-server status && service rabbitmq-server reload || service rabbitmq-server start
+}
+
+celery() {
+    CELERY_START_FILE=${WEBAPP_DIR}/bin/celery_start
+    CELERY_LOG_FILE=${WEBAPP_LOG_DIR}/celery_supervisor.log
+
+    cat << EOF > ${CELERY_START_FILE}
+#!/usr/bin/env bash
+
+NAME=${DJANGOAPP_NAME}
+EXECDIR=${WEBAPP_DIR}/bin
+
+echo "Starting celery \$NAME as \`whoami\`"
+
+exec \${EXECDIR}/celery \
+  worker -A \${NAME}.celery \
+  --loglevel=INFO
+EOF
+
+    cat << EOF > /etc/supervisord.d/supervisord_celery.conf
+[program:${SERVICE_NAME}-celery]
+#directory=${DJANGOAPP_DIR}
+command=${CELERY_START_FILE}
+user=nobody
+numprocs=1
+stdout_logfile=${CELERY_LOG_FILE}
+redirect_stderr=true
+autostart=true
+autorestart=true
+startsecs=10
+stopwaitsecs = 600
+stopasgroup=true
+priority=1000
+EOF
+
+    supervisorctl add ${SERVICE_NAME}-celery
+    supervisorctl start ${SERVICE_NAME}-celery
+}
+
+
+ACTIONS_LIST="pkgs nginx supervisor gunicorn rabbitmq celery"
 [ -n "$1" ] && ACTIONS_LIST="$*"
 for action in ${ACTIONS_LIST}; do
   ${action}

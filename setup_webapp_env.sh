@@ -279,8 +279,14 @@ rabbitmq() {
     yum install erlang
     yum install rabbitmq-server.noarch
 
+    export PATH=$PATH:/usr/local/sbin
+
     chkconfig rabbitmq-server on
     service rabbitmq-server status && service rabbitmq-server reload || service rabbitmq-server start
+
+    rabbitmqctl add_user pa xxxxxxx
+    rabbitmqctl add_vhost pa
+    rabbitmqctl set_permissions -p pa pa ".*" ".*" ".*"
 }
 
 celery() {

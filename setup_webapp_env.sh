@@ -310,6 +310,10 @@ exec \${EXECDIR}/celery \
   --loglevel=INFO
 EOF
 
+    touch ${CELERY_LOG_FILE}
+    chown ${SERVICE_USER}:${SERVICE_GROUP} ${CELERY_START_FILE} ${CELERY_LOG_FILE}
+    chmod u+x ${CELERY_START_FILE}
+
     cat << EOF > /etc/supervisord.d/supervisord_celery.conf
 [program:${SERVICE_NAME}-celery]
 #directory=${DJANGOAPP_DIR}

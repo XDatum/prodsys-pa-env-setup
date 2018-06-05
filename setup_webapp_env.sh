@@ -21,7 +21,7 @@ pkgs() {
     sudo -u ${SERVICE_USER} -H bash << EOF
     virtualenv .
     . bin/activate
-    pip install Django==1.11.* gunicorn setproctitle celery argparse numpy
+    pip install Django==1.11.* djangorestframework gunicorn setproctitle celery argparse numpy
 EOF
 }
 
@@ -324,7 +324,7 @@ EOF
 [program:${SERVICE_NAME}-celery]
 #directory=${DJANGOAPP_DIR}
 command=${CELERY_START_FILE}
-user=nobody
+user=${SERVICE_USER}
 numprocs=1
 stdout_logfile=${CELERY_LOG_FILE}
 redirect_stderr=true

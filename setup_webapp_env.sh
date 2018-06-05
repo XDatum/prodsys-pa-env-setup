@@ -279,7 +279,13 @@ rabbitmq() {
     yum install erlang
     yum install rabbitmq-server.noarch
 
-    export PATH=$PATH:/usr/local/sbin
+    # wget http://packages.erlang-solutions.com/erlang-solutions-1.0-1.noarch.rpm
+    # rpm -Uvh erlang-solutions-1.0-1.noarch.rpm
+    # yum install erlang
+
+    # wget https://dl.bintray.com/rabbitmq/all/rabbitmq-server/3.7.5/rabbitmq-server-3.7.5-1.el7.noarch.rpm
+    # rpm --import https://www.rabbitmq.com/rabbitmq-release-signing-key.asc
+    # yum install rabbitmq-server-3.7.5-1.el7.noarch.rpm
 
     chkconfig rabbitmq-server on
     service rabbitmq-server status && service rabbitmq-server reload || service rabbitmq-server start

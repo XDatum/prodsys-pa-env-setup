@@ -290,13 +290,17 @@ celery() {
     cat << EOF > ${CELERY_START_FILE}
 #!/usr/bin/env bash
 
-NAME=${DJANGOAPP_NAME}
+NAME=config.celery
+DJANGODIR=${DJANGOAPP_DIR}
 EXECDIR=${WEBAPP_DIR}/bin
 
 echo "Starting celery \$NAME as \`whoami\`"
 
+. \${EXECDIR}/activate
+export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
+
 exec \${EXECDIR}/celery \
-  worker -A \${NAME}.celery \
+  worker -A \${NAME} \
   --loglevel=INFO
 EOF
 

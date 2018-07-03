@@ -11,10 +11,8 @@ PLATFORM='x86_64'
 
 source $(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/env_vars.sh
 
-WEBAPP_LOG_DIR=${WEBAPP_DIR}/logs
-
 DJANGOAPP_DIR=${WEBAPP_DIR}/service
-DJANGOAPP_NAME='p2paweb'
+WEBAPP_LOG_DIR=${WEBAPP_DIR}/logs
 
 pkgs() {
     cd ${WEBAPP_DIR}
@@ -123,7 +121,7 @@ http {
         }
 
         location /static/ {
-            alias    ${DJANGOAPP_DIR}/${DJANGOAPP_NAME}/static/;
+            alias    ${DJANGOAPP_DIR}/static/;
         }
     }
 }

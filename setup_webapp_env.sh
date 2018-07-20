@@ -312,6 +312,11 @@ export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
 exec \${EXECDIR}/celery \
   worker -A \${NAME} \
   --loglevel=INFO
+
+exec \${EXECDIR}/celery \
+  beat -A \${NAME} \
+  --loglevel=INFO
+
 EOF
 
     touch ${CELERY_LOG_FILE}
@@ -320,7 +325,7 @@ EOF
 
     cat << EOF > /etc/supervisord.d/supervisord_celery.conf
 [program:${SERVICE_NAME}-celery]
-#directory=${DJANGOAPP_DIR}
+directory=${DJANGOAPP_DIR}
 command=${CELERY_START_FILE}
 user=${SERVICE_USER}
 numprocs=1
@@ -329,7 +334,7 @@ redirect_stderr=true
 autostart=true
 autorestart=true
 startsecs=10
-stopwaitsecs = 600
+stopwaitsecs=600
 stopasgroup=true
 priority=1000
 EOF

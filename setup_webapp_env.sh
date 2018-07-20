@@ -19,7 +19,7 @@ pkgs() {
     sudo -u ${SERVICE_USER} -H bash << EOF
     virtualenv .
     . bin/activate
-    pip install Django==1.11.* djangorestframework gunicorn setproctitle celery argparse numpy
+    pip install Django==1.11.* setproctitle gunicorn celery==4.*
 EOF
 }
 

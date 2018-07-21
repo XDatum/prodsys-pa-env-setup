@@ -137,7 +137,7 @@ EOF
 
 supervisor() {
     SUPERVISOR_CONFIG_FILE=/etc/supervisord.conf
-    SUPERVISOR_CONFIG_DIR=/etc/supervisord.d/
+    SUPERVISOR_CONFIG_DIR=/etc/supervisord.d
 
     pip install supervisor
     echo_supervisord_conf > ${SUPERVISOR_CONFIG_FILE}
@@ -145,7 +145,7 @@ supervisor() {
 
     cat << EOF >> ${SUPERVISOR_CONFIG_FILE}
 [include]
-files = ${SUPERVISOR_CONFIG_DIR}*.conf
+files = ${SUPERVISOR_CONFIG_DIR}/*.conf
 EOF
 
     cat << EOF > /etc/rc.d/init.d/supervisord
@@ -258,8 +258,8 @@ EOF
     chmod u+x ${GUNICORN_START_FILE}
 
     cat << EOF > /etc/supervisord.d/supervisord_${SERVICE_NAME}.conf
-[program:${SERVICE_NAME}]
-#directory=${DJANGOAPP_DIR}
+[program:${SERVICE_NAME}-gunicorn]
+directory=${WEBAPP_DIR}/run
 command=${GUNICORN_START_FILE}
 user=${SERVICE_USER}
 stdout_logfile=${GUNICORN_LOG_FILE}
@@ -269,8 +269,8 @@ autorestart=true
 environment=LANG=en_US.UTF-8,LC_ALL=en_US.UTF-8
 EOF
 
-    supervisorctl add ${SERVICE_NAME}
-    supervisorctl start ${SERVICE_NAME}
+    supervisorctl reread
+    supervisorctl update
 }
 
 rabbitmq() {
@@ -295,8 +295,6 @@ rabbitmq() {
 
 celery() {
     CELERY_START_FILE=${WEBAPP_DIR}/bin/celery_start
-    CELERY_LOG_FILE=${WEBAPP_LOG_DIR}/celery_supervisor.log
-
     cat << EOF > ${CELERY_START_FILE}
 #!/usr/bin/env bash
 
@@ -309,23 +307,33 @@ echo "Starting celery \$NAME as \`whoami\`"
 . \${EXECDIR}/activate
 export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
 
-exec \${EXECDIR}/celery \
-  worker -A \${NAME} \
-  --loglevel=INFO
-
-exec \${EXECDIR}/celery \
-  beat -A \${NAME} \
-  --loglevel=INFO
-
+exec \${EXECDIR}/celery worker -A \${NAME} -l info
 EOF
 
+    CELERY_BEAT_START_FILE=${WEBAPP_DIR}/bin/celery_beat_start
+    cat << EOF > ${CELERY_BEAT_START_FILE}
+#!/usr/bin/env bash
+
+NAME=config.celery
+DJANGODIR=${DJANGOAPP_DIR}
+EXECDIR=${WEBAPP_DIR}/bin
+
+echo "Starting celery-beat \$NAME as \`whoami\`"
+
+. \${EXECDIR}/activate
+export PYTHONPATH=\${DJANGODIR}:\${PYTHONPATH}
+
+exec \${EXECDIR}/celery beat -A \${NAME} -l info
+EOF
+
+    CELERY_LOG_FILE=${WEBAPP_LOG_DIR}/celery_supervisor.log
     touch ${CELERY_LOG_FILE}
-    chown ${SERVICE_USER}:${SERVICE_GROUP} ${CELERY_START_FILE} ${CELERY_LOG_FILE}
-    chmod u+x ${CELERY_START_FILE}
+    chown ${SERVICE_USER}:${SERVICE_GROUP} ${CELERY_START_FILE} ${CELERY_BEAT_START_FILE} ${CELERY_LOG_FILE}
+    chmod u+x ${CELERY_START_FILE} ${CELERY_BEAT_START_FILE}
 
     cat << EOF > /etc/supervisord.d/supervisord_celery.conf
 [program:${SERVICE_NAME}-celery]
-directory=${DJANGOAPP_DIR}
+directory=${WEBAPP_DIR}/run
 command=${CELERY_START_FILE}
 user=${SERVICE_USER}
 numprocs=1
@@ -339,8 +347,24 @@ stopasgroup=true
 priority=1000
 EOF
 
-    supervisorctl add ${SERVICE_NAME}-celery
-    supervisorctl start ${SERVICE_NAME}-celery
+    cat << EOF > /etc/supervisord.d/supervisord_celery_beat.conf
+[program:${SERVICE_NAME}-celery-beat]
+directory=${WEBAPP_DIR}/run
+command=${CELERY_BEAT_START_FILE}
+user=${SERVICE_USER}
+numprocs=1
+stdout_logfile=${CELERY_LOG_FILE}
+redirect_stderr=true
+autostart=true
+autorestart=true
+startsecs=10
+stopwaitsecs=600
+stopasgroup=true
+priority=1000
+EOF
+
+    supervisorctl reread
+    supervisorctl update
 }
 
 
